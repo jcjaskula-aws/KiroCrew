@@ -43,6 +43,12 @@ const listing = (...entries: [string, boolean][]) => ({
   sessions: entries.map(([session_id, alive]) => ({ session_id, alive })),
 })
 
+/** A listing that also vouches for ids the server holds an exit record for. */
+const listingWithExited = (exited: unknown, ...entries: [string, boolean][]) => ({
+  ...listing(...entries),
+  exited,
+})
+
 afterEach(() => {
   current?.__resetBottomTerminal()
   current = null
@@ -68,6 +74,39 @@ describe('useBottomTerminal — hydrate-time reconciliation', () => {
     expect(persistedTabIds()).toEqual(['live', 'dead', 'gone'])
     expect(store.hasTab('gone')).toBe(true)
     expect(store.isTerminalHydratePending()).toBe(true)
+  })
+
+  it('keeps a tab whose shell exited but whose record the server still holds', async () => {
+    // The whole point of the retained record: the tab is what dials for the
+    // replay, so dropping it destroys the output the record exists to deliver.
+    const store = await bootWith([{ id: 'live' }, { id: 'exited' }, { id: 'gone' }])
+
+    const suspects = store.reconcileRestoredTabs(
+      listingWithExited(['exited'], ['live', true]),
+    )
+
+    expect(suspects).toEqual(['gone'])
+    expect(store.hasTab('exited')).toBe(true)
+  })
+
+  it('never drops a recorded-exit tab on the confirm look either', async () => {
+    const store = await bootWith([{ id: 'exited' }, { id: 'gone' }])
+    store.reconcileRestoredTabs(listingWithExited(['exited']))
+
+    const dropped = store.confirmRestoredTabs(listingWithExited(['exited']))
+
+    expect(dropped).toEqual(['gone'])
+    expect(store.hasTab('exited')).toBe(true)
+    expect(persistedTabIds()).toEqual(['exited'])
+  })
+
+  it('treats a malformed exited field as an answer that cannot rule', async () => {
+    // Same rule a malformed session entry follows: dropping a tab cannot be
+    // undone, so it only happens on a payload read in full.
+    const store = await bootWith([{ id: 'gone' }])
+
+    expect(store.reconcileRestoredTabs(listingWithExited('nope'))).toEqual([])
+    expect(store.hasTab('gone')).toBe(true)
   })
 
   it('confirm look drops the suspects still missing, keeps the live one, refocuses and persists', async () => {

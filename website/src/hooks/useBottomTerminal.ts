@@ -237,10 +237,11 @@ let ruling = newRuling(new Set(state.tabs.map(t => t.id)))
 
 /** First look: weigh the restored tab set against the backend's session list
  *  (the JSON body of `GET /api/terminal/sessions`, or null when the probe
- *  failed). Restored tabs whose session is absent or `alive: false` become
+ *  failed). Restored tabs the answer does not vouch for — no session, a session
+ *  reported `alive: false`, and no unexpired exit record either — become
  *  SUSPECTS and are returned; nothing is dropped yet, and the hosts stay gated
  *  until `confirmRestoredTabs` rules on them. With no suspects — or on a payload
- *  that does not rule (see `liveSessionIds`) — every tab is kept and the store
+ *  that does not rule (see `retainableSessionIds`) — every tab is kept and the store
  *  settles at once: removing a possibly-live shell and its scrollback cannot be
  *  undone, while a kept dead tab is user-closable and its PTY entry is the
  *  reaper's to clear. Runs once per document: later calls return []. */

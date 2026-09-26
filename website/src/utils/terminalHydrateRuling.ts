@@ -1,10 +1,16 @@
-/** Session ids the backend reports as live, or null when the payload does not
- *  rule on liveness: a transport failure, a shape this client does not
- *  recognize, or the feature-disabled answer (which returns an empty list
- *  without consulting the registry, so its absence means nothing). */
-export function liveSessionIds(payload: unknown): Set<string> | null {
+/** The ids this answer VOUCHES FOR — a live shell, or one whose exit the server
+ *  still holds a record of — or null when it does not rule at all.
+ *
+ *  A recorded exit keeps its tab for the same reason a live shell does: the
+ *  record carries the dead shell's own output, and a dial gets it replayed. The
+ *  tab is what dials, so dropping it is what would destroy the replay.
+ *
+ *  Null is "does not rule": a transport failure, a shape this client does not
+ *  recognize, or the feature-disabled answer, which returns an empty list
+ *  without consulting the registry, so its absence means nothing. */
+export function retainableSessionIds(payload: unknown): Set<string> | null {
   if (!payload || typeof payload !== 'object') return null
-  const p = payload as { enabled?: unknown; sessions?: unknown }
+  const p = payload as { enabled?: unknown; sessions?: unknown; exited?: unknown }
   if (p.enabled === false || !Array.isArray(p.sessions)) return null
   const live = new Set<string>()
   for (const entry of p.sessions) {
@@ -14,6 +20,15 @@ export function liveSessionIds(payload: unknown): Set<string> | null {
     // irreversible, so it only happens on a payload read in full.
     if (typeof session_id !== 'string' || typeof alive !== 'boolean') return null
     if (alive) live.add(session_id)
+  }
+  // Absent on an older gateway, which simply vouches for nothing extra. A
+  // malformed value voids the answer on the same rule as a malformed session.
+  if (p.exited !== undefined) {
+    if (!Array.isArray(p.exited)) return null
+    for (const id of p.exited) {
+      if (typeof id !== 'string') return null
+      live.add(id)
+    }
   }
   return live
 }
@@ -44,7 +59,7 @@ export function createTerminalHydrateRuling(
     isPending: () => phase !== 'settled',
     reconcile(payload) {
       if (phase !== 'pending') return []
-      const live = liveSessionIds(payload)
+      const live = retainableSessionIds(payload)
       const found = live === null ? [] : held().filter(id => restored.has(id) && !live.has(id))
       if (found.length === 0) { settle(); return [] }
       phase = 'confirming'
@@ -53,7 +68,7 @@ export function createTerminalHydrateRuling(
     },
     confirm(payload) {
       if (phase !== 'confirming') return []
-      const live = liveSessionIds(payload)
+      const live = retainableSessionIds(payload)
       const dropped = live === null ? [] : held().filter(id => suspects.has(id) && !live.has(id))
       // Drop while still gated, then settle: the hosts first see the kept set.
       if (dropped.length > 0) drop(new Set(dropped))

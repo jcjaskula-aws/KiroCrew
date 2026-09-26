@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { createTerminalHydrateRuling, liveSessionIds } from './terminalHydrateRuling'
+import { createTerminalHydrateRuling, retainableSessionIds } from './terminalHydrateRuling'
 
 const listing = (...entries: [string, boolean][]) => ({
   enabled: true,
@@ -14,9 +14,9 @@ function setup(restored: string[], held = restored) {
   return { ruling, drop, emit, held: () => ids }
 }
 
-describe('liveSessionIds', () => {
+describe('retainableSessionIds', () => {
   it('reads the live ids from a full answer', () => {
-    expect(liveSessionIds(listing(['a', true], ['b', false]))).toEqual(new Set(['a']))
+    expect(retainableSessionIds(listing(['a', true], ['b', false]))).toEqual(new Set(['a']))
   })
 
   it.each([
@@ -25,7 +25,23 @@ describe('liveSessionIds', () => {
     ['no list', { enabled: true }],
     ['malformed entry', { enabled: true, sessions: [{ session_id: 'a' }] }],
   ])('does not rule on a %s payload', (_name, payload) => {
-    expect(liveSessionIds(payload)).toBeNull()
+    expect(retainableSessionIds(payload)).toBeNull()
+  })
+
+  it('vouches for unexpired exit records alongside live shells', () => {
+    expect(retainableSessionIds({ ...listing(['a', true], ['b', false]), exited: ['c'] }))
+      .toEqual(new Set(['a', 'c']))
+  })
+
+  it('reads an answer without the exit field, as an older gateway sends', () => {
+    expect(retainableSessionIds(listing(['a', true]))).toEqual(new Set(['a']))
+  })
+
+  it.each([
+    ['non-list', 'c'],
+    ['non-string entry', ['c', 7]],
+  ])('does not rule on a %s exit field', (_name, exited) => {
+    expect(retainableSessionIds({ ...listing(['a', true]), exited })).toBeNull()
   })
 })
 
@@ -64,6 +80,15 @@ describe('createTerminalHydrateRuling', () => {
     expect(second.ruling.confirm(null)).toEqual([])
     expect(second.drop).not.toHaveBeenCalled()
     expect(second.ruling.isPending()).toBe(false)
+  })
+
+  it('keeps a restored tab whose shell exited while its record is unexpired', () => {
+    const { ruling, drop, held } = setup(['exited', 'gone'])
+    const answer = { ...listing(), exited: ['exited'] }
+    expect(ruling.reconcile(answer)).toEqual(['gone'])
+    expect(ruling.confirm(answer)).toEqual(['gone'])
+    expect(drop).toHaveBeenCalledTimes(1)
+    expect(held()).toEqual(['exited'])
   })
 
   it('never names a session that was not restored', () => {
