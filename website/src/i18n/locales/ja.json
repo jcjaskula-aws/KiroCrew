@@ -7344,6 +7344,7 @@
         "kind_skills": "スキル",
         "kind_subagent": "サブエージェント",
         "kind_task_runner": "Task Runner",
+        "kind_terminal": "ターミナル",
         "kind_webhook": "Webhook",
         "this_week": "今週",
         "today": "今日",

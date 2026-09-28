@@ -7344,6 +7344,7 @@
         "kind_skills": "技能",
         "kind_subagent": "子代理",
         "kind_task_runner": "Task Runner",
+        "kind_terminal": "终端",
         "kind_webhook": "Webhook",
         "this_week": "本周",
         "today": "今天",

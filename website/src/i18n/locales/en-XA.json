@@ -6739,6 +6739,7 @@
         "kind_skills": "[Şķìĺĺş ·········]",
         "kind_subagent": "[Şùƀàğèñţ ············]",
         "kind_task_runner": "[Ţàşķ Ŕùññèŕ ··········]",
+        "kind_terminal": "[Ţèŕɱìñàĺ ············]",
         "kind_webhook": "[Ẁèƀĥøøķ ···········]"
       },
       "notificationBanner": {
