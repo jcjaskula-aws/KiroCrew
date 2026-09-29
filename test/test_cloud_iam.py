@@ -351,6 +351,7 @@ class TestPolicyDocument:
         assert set(st["Action"]) == {
             "ec2:AuthorizeSecurityGroupEgress",
             "ec2:AuthorizeSecurityGroupIngress",
+            "ec2:RevokeSecurityGroupEgress",
             "ec2:RevokeSecurityGroupIngress",
             "ec2:DeleteSecurityGroup",
             "ec2:DeleteTags",
@@ -475,11 +476,35 @@ class TestPolicyDocument:
                     assert "Condition" in st, f"{st['Sid']} grants session/command on instances "
                     "without a tag condition"
 
+    def test_template_declared_egress_requires_the_egress_revoke(self):
+        # A security group declaring SecurityGroupEgress inline makes
+        # CloudFormation revoke the implicit allow-all egress rule EC2 attaches
+        # to every new group before it applies the declared one. The launcher
+        # therefore needs ec2:RevokeSecurityGroupEgress, not just the Authorize
+        # counterpart, or stack creation stops at InstanceSecurityGroup with
+        # AccessDenied on every launch.
+        import pathlib
+
+        template = (
+            pathlib.Path(iam.__file__).resolve().parent / "templates" / "kirocrew-ec2.yaml"
+        ).read_text(encoding="utf-8")
+        assert "SecurityGroupEgress:" in template, (
+            "template no longer declares inline egress — re-check whether the "
+            "egress revoke grant is still required"
+        )
+        st = self._stmt("Ec2ManagedResourceMutateTagged")
+        assert "ec2:RevokeSecurityGroupEgress" in st["Action"]
+
     def test_destructive_ec2_verbs_tag_scoped(self):
         st = self._stmt("Ec2ManagedResourceMutateTagged")
         cond = st["Condition"]["StringEquals"]
         assert cond[f"aws:ResourceTag/{iam.MANAGED_TAG_KEY}"] == "true"
-        for verb in ("ec2:DeleteSecurityGroup", "ec2:RevokeSecurityGroupIngress", "ec2:DeleteTags"):
+        for verb in (
+            "ec2:DeleteSecurityGroup",
+            "ec2:RevokeSecurityGroupEgress",
+            "ec2:RevokeSecurityGroupIngress",
+            "ec2:DeleteTags",
+        ):
             assert verb in st["Action"]
         # creation verbs live in the provision statements; destructive verbs don't.
         run_st = self._stmt("Ec2RunInstancesTaggedInstance")

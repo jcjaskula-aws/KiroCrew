@@ -409,11 +409,16 @@ def policy_document() -> dict[str, Any]:
             # rules on, delete/retag, or stop/terminate an UNRELATED (untagged)
             # resource; the stack's SG + instance carry kirocrew:managed=true from
             # creation (TagSpecifications), so CFN's own calls still authorize.
+            # Both directions need Authorize AND Revoke: a template-declared
+            # SecurityGroupEgress makes CloudFormation revoke the implicit
+            # allow-all egress rule EC2 attaches to every new group before it
+            # applies the declared one.
             "Sid": "Ec2ManagedResourceMutateTagged",
             "Effect": "Allow",
             "Action": [
                 "ec2:AuthorizeSecurityGroupEgress",
                 "ec2:AuthorizeSecurityGroupIngress",
+                "ec2:RevokeSecurityGroupEgress",
                 "ec2:RevokeSecurityGroupIngress",
                 "ec2:DeleteSecurityGroup",
                 "ec2:DeleteTags",

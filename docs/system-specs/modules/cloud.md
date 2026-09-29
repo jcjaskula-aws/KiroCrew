@@ -474,7 +474,8 @@ pointer -- which `kirocrew cloud list` can rediscover from the real stacks anywa
   (fail-closed WaitCondition on a broken install).
 - **Least-privilege, tag-/prefix-scoped IAM.** The RCE-adjacent SSM verbs
   (`ssm:StartSession` / `ssm:SendCommand` on instances) and the EC2 destructive
-  verbs (`DeleteSecurityGroup` / `RevokeSecurityGroupIngress` / `DeleteTags`)
+  verbs (`DeleteSecurityGroup` / `RevokeSecurityGroupEgress` /
+  `RevokeSecurityGroupIngress` / `DeleteTags`)
   require `kirocrew:managed=true`; CloudFormation stack mutation/delete is scoped
   to `stack/kirocrew-*/*`, and the change-set verbs (which `aws cloudformation
   deploy` authorizes on the **changeSet ARN**, not just the stack ARN) are a
