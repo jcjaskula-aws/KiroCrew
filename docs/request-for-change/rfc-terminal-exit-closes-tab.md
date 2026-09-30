@@ -1,11 +1,11 @@
 ---
 title: Terminal exit closes its tab — what the dashboard does when a shell ends on its own
-status: draft
+status: accepted
 author: jjaskula
 created: 2026-09-29
-last-audited: 2026-09-29
-audited-at: df0ea7909
-doc-pr: null
+last-audited: 2026-09-30
+audited-at: 2b91a6bad
+doc-pr: 15144
 implementation-prs: [14509, 14511]
 tracking-issues: [14584, 13189]
 supersedes: []
@@ -14,10 +14,15 @@ superseded-by: []
 
 # RFC: Terminal Exit Closes Its Tab
 
-> **Status:** `draft`. Nothing is on main. Verified at `df0ea7909`: `read_pty`
-> in `src/kiro_crew/dashboard/handlers/terminal.py` sends no frame when the
-> shell exits, so the browser sees only a dropped socket, redials, and the dial
-> spawns a new shell. The dead PTY is reaped by the 15-minute orphan sweep. The
+> **Status:** `accepted` on 2026-09-30, on the maintainer decision bolichen97
+> recorded on
+> [#14509](https://github.com/kirodotdev/KiroCrew/pull/14509#issuecomment-5905997607)
+> after this document merged in
+> [#15144](https://github.com/kirodotdev/KiroCrew/pull/15144). Nothing is on
+> main yet. Verified at `2b91a6bad`: `read_pty` in
+> `src/kiro_crew/dashboard/handlers/terminal.py` sends no frame when the shell
+> exits, so the browser sees only a dropped socket, redials, and the dial spawns
+> a new shell. The dead PTY is reaped by the 15-minute orphan sweep. The
 > implementation is [#14509](https://github.com/kirodotdev/KiroCrew/pull/14509),
 > with the Windows exit code in
 > [#14511](https://github.com/kirodotdev/KiroCrew/pull/14511).
@@ -84,10 +89,14 @@ On `exit` or `4001` the client stops retrying and closes the tab:
 
 A non-zero status posts one note to the notification feed: title `Terminal
 exited abnormally`, body `The shell exited with code N.` or `The shell was
-killed by SIGNAME.` A clean exit posts nothing. The feed reaches every
-dashboard session, not only the terminal's owner, so the note carries nothing
-about the session: no shell, no directory, no session id; `meta` holds only the
-status.
+killed by SIGNAME.` A clean exit posts nothing. With the tab gone, the note is
+the only trace an abnormal exit leaves. A shell ended by `exit` or `Ctrl+D`
+exits with its last command's status, so closing it right after a failed
+command also posts the note. The gateway cannot tell that close from a shell
+that failed, so it reports every known non-zero status and names the code for
+the user to judge. The feed reaches every dashboard session, not only the
+terminal's owner, so the note carries nothing about the session: no shell, no
+directory, no session id; `meta` holds only the status.
 
 ## Migration plan
 
