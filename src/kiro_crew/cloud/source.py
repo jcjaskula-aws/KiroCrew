@@ -1075,12 +1075,12 @@ def _ensure_boundary(
     # exist answers NoSuchEntity rather than AccessDenied, so it still falls
     # through to the create below.
     if aws.is_access_denied(read_err):
-        missing = aws.map_missing_action(read_err) or "iam:GetPolicy"
+        read_missing = aws.map_missing_action(read_err) or "iam:GetPolicy"
         raise aws.AWSError(
             f"could not read the permissions boundary '{name}': "
-            f"{(read_err or '').strip()[:300]} — grant `{missing}` and retry",
+            f"{(read_err or '').strip()[:300]} — grant `{read_missing}` and retry",
             action="iam:GetPolicy",
-            missing_action=missing,
+            missing_action=read_missing,
             returncode=rc,
             stderr=read_err or "",
         )
